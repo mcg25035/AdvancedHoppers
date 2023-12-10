@@ -1,0 +1,4 @@
+name: AdvancedHoppers
+version: '1.0-SNAPSHOT'
+main: org.advancedhoppers.AdvancedHoppers
+api-version: '1.20'
