@@ -8,8 +8,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.server.PluginDisableEvent;
+import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockDataMeta;
 import org.itemutils.ItemUtils;
@@ -48,6 +54,31 @@ public class Events implements Listener {
 
     @EventHandler
     public void BlockBreakEvent(BlockBreakEvent event){
+        String eventName = new Object(){}.getClass().getEnclosingMethod().getName();
+        eventPass(eventName, event);
+
+    }
+
+    @EventHandler
+    public void PrepareItemCraftEvent(PrepareItemCraftEvent event){
+        String eventName = new Object(){}.getClass().getEnclosingMethod().getName();
+        eventPass(eventName, event);
+    }
+
+    @EventHandler
+    public void InventoryClickEvent(InventoryClickEvent event){
+        String eventName = new Object(){}.getClass().getEnclosingMethod().getName();
+        eventPass(eventName, event);
+    }
+
+    @EventHandler
+    public void PluginDisableEvent(PluginDisableEvent event){
+        String eventName = new Object(){}.getClass().getEnclosingMethod().getName();
+        eventPass(eventName, event);
+    }
+
+    @EventHandler
+    public void PluginEnableEvent(PluginEnableEvent event){
         String eventName = new Object(){}.getClass().getEnclosingMethod().getName();
         eventPass(eventName, event);
     }
