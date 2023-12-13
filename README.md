@@ -1,5 +1,5 @@
 # ItemUtils
-a plugin adding more hoppers to Minecraft.
+a plugin adding more hoppers to Minecraft.<br>
 Configs:
 - lang: language(en and zh_tw)
 ChunkyHopper:
