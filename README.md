@@ -1,4 +1,4 @@
-# ItemUtils
+# Advanced Hoppers
 a plugin adding more hoppers to Minecraft.<br><br>
 Configs:
 - lang: language(en and zh_tw)
