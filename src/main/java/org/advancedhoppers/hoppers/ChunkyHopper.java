@@ -51,7 +51,7 @@ public class ChunkyHopper{
         nbt.put("Type", "chunky");
         itemStack = ItemUtils.itemSetNbtPath(itemStack, "AdvancedHoppers", nbt);
         ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.setDisplayName("§6Chunky Hopper");
+        itemMeta.setDisplayName(AdvancedHoppers.getInstance().languageMapping.get("chunkyHopper"));
         itemStack.setItemMeta(itemMeta);
         return itemStack;
     }

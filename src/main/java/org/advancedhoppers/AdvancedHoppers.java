@@ -60,11 +60,11 @@ public final class AdvancedHoppers extends JavaPlugin {
     }
 
     public static File getHoppersDir(String hopperType) {
-        File chunkyHoppersDir = new File(getInstance().getDataFolder(), hopperType);
-        if (!chunkyHoppersDir.exists()) {
-            chunkyHoppersDir.mkdirs();
+        File hoppersDir = new File(getInstance().getDataFolder(), hopperType);
+        if (!hoppersDir.exists()) {
+            hoppersDir.mkdirs();
         }
-        return chunkyHoppersDir;
+        return hoppersDir;
     }
 
     public String pathToName(String path){
