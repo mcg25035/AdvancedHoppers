@@ -2,6 +2,7 @@
 a plugin adding more hoppers to Minecraft.<br><br>
 Configs:
 - lang: language(en and zh_tw)
+
 <br><br>
 ChunkyHopper:
 - collect all items in the chunk where chunky hopper in.
