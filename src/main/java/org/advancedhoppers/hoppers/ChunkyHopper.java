@@ -204,8 +204,19 @@ public class ChunkyHopper{
         if (!event.isDropItems()){
             return;
         }
+        Inventory hopperInventory = ((Hopper)(event.getBlock().getState())).getInventory();
+        ItemStack[] hopperItem = hopperInventory.getContents();
+        hopperInventory.clear();
+
         event.setDropItems(false);
         location.getWorld().dropItem(location, chunkyHopperItem());
+
+        for (ItemStack i : hopperItem){
+            if (InventoryUtil.isEmpty(i)){
+                continue;
+            }
+            location.getWorld().dropItem(location, i);
+        }
     }
 
     public static boolean recipeMatch(ItemStack craftingRecipe[]){
