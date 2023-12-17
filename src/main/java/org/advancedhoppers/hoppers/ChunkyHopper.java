@@ -65,17 +65,25 @@ public class ChunkyHopper{
                 return;
             }
 
+            boolean itemInChunk = false;
+
             for (Entity entity : location.getChunk().getEntities()) {
                 if (!(entity instanceof Item)) {
                     continue;
                 }
                 Item item = (Item) entity;
+                itemInChunk = true;
                 if (!item.getLocation().getChunk().equals(location.getChunk())) {
                     continue;
                 }
                 ItemStack leftItems = (((Hopper)(location.getBlock().getState())).getInventory().addItem(item.getItemStack())).get(0);
                 item.setItemStack(leftItems);
             }
+
+            if (itemInChunk){
+                location.getBlock().getState().update();
+            }
+
         }, 0, 1);
     }
 
