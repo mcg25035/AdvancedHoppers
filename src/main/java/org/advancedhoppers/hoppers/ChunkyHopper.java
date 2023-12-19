@@ -32,8 +32,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Objects;
+import java.util.*;
 
 public class ChunkyHopper{
     private static HashMap<LocationKey, ChunkyHopper> hoppers = new HashMap<>();
@@ -42,8 +41,6 @@ public class ChunkyHopper{
     private Location location;
     private Chunk chunk;
     private BukkitTask collectTask;
-
-
 
     public static ItemStack chunkyHopperItem(){
         ItemStack itemStack = new ItemStack(Material.HOPPER);
@@ -61,6 +58,11 @@ public class ChunkyHopper{
         hopperChunkMap.put(chunk, this);
         hoppers.put(new LocationKey(location.getBlockX(), location.getBlockY(), location.getBlockZ()), this);
         collectTask = Bukkit.getScheduler().runTaskTimer(AdvancedHoppers.getInstance(), () -> {
+            if (!location.getBlock().getType().equals(Material.HOPPER)){
+                collectTask.cancel();
+                return;
+            }
+
             if (location.getBlock().isBlockPowered()){
                 return;
             }
@@ -336,7 +338,9 @@ public class ChunkyHopper{
     }
 
     public static void PluginDisableEvent(PluginDisableEvent event){
-        for (ChunkyHopper i : hopperChunkMap.values()){
+        List<ChunkyHopper> hoppers = new ArrayList<>();
+        hoppers.addAll(ChunkyHopper.hopperChunkMap.values());
+        for (ChunkyHopper i : hoppers){
             i.saveHopper();
         }
     }
