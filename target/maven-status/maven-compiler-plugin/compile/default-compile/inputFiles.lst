@@ -1,8 +1,11 @@
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/hoppers/ChunkyHopper.java
+/home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/utils/ItemUtils.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/utils/InventoryUtil.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/Events.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/AdvancedHoppers.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/utils/AskInput.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/utils/MessageUtils.java
+/home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/exceptions/TypeNotSupportException.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/hoppers/RemoteHopper.java
 /home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/utils/LocationKey.java
+/home/codingbear/IdeaProjects/AdvancedHoppers/src/main/java/org/advancedhoppers/exceptions/BlockNotMatchException.java

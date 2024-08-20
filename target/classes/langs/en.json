@@ -1,4 +1,8 @@
 {
   "chunkyHopperExist": "\u00a7cThere is already a ChunkyHopper in this chunk \u00a7f: ",
-  "chunkyHopper": "\u00a76Chunky Hopper"
+  "chunkyHopper": "\u00a76Chunky Hopper",
+  "chunkyHopperMode": "\u00a7cSet ChunkyHopper mode to\u00a7f: %mode%",
+  "SUCK_UP": "\u00a7eSuck Up",
+  "SUCK_DOWN": "\u00a7eSuck Down",
+  "SUCK_ALL": "\u00a7eSuck All"
 }

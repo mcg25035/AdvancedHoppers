@@ -2,4 +2,3 @@ name: AdvancedHoppers
 version: '${project.version}'
 main: org.advancedhoppers.AdvancedHoppers
 api-version: '1.20'
-depend: [ItemUtils]

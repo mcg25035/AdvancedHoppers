@@ -1,4 +1,8 @@
 {
   "chunkyHopperExist": "\u00a7c已經有一個區塊漏斗存在這個區塊內了 \u00a7f: ",
-  "chunkyHopper": "\u00a76區塊漏斗"
+  "chunkyHopper": "\u00a76區塊漏斗",
+  "chunkyHopperMode": "\u00a7c已將區塊漏斗模式設置為\u00a7f: %mode%",
+  "SUCK_UP": "\u00a7e吸上",
+  "SUCK_DOWN": "\u00a7e吸下",
+  "SUCK_ALL": "\u00a7e全吸"
 }

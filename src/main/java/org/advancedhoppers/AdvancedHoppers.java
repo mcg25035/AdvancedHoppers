@@ -3,6 +3,7 @@ package org.advancedhoppers;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import org.advancedhoppers.hoppers.ChunkyHopper;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.plugin.PluginManager;

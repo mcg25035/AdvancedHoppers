@@ -1,24 +1,33 @@
 package org.advancedhoppers.hoppers;
 
+import com.destroystokyo.paper.event.player.PlayerJumpEvent;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import org.advancedhoppers.AdvancedHoppers;
+import org.advancedhoppers.exceptions.BlockNotMatchException;
 import org.advancedhoppers.utils.InventoryUtil;
 import org.advancedhoppers.utils.LocationKey;
 import org.advancedhoppers.utils.MessageUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Hopper;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.WanderingTrader;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
@@ -26,76 +35,145 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitTask;
-import org.itemutils.ItemUtils;
+import org.advancedhoppers.utils.ItemUtils;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ChunkyHopper{
+    private enum HopperMode {
+        SUCK_UP,
+        SUCK_DOWN,
+        SUCK_ALL
+    }
+
     private static HashMap<LocationKey, ChunkyHopper> hoppers = new HashMap<>();
     private static HashMap<Chunk, ChunkyHopper> hopperChunkMap = new HashMap<>();
     private static File chunkyHoppersDir = AdvancedHoppers.getHoppersDir("chunkyHopper");
+//    private static BukkitTask debugTask = Bukkit.getScheduler().runTaskTimer(AdvancedHoppers.getInstance(), () -> {
+//        Bukkit.getLogger().info("ChunkyHopper count: " + hoppers.size());
+//    }, 0, 20*60);
+
     private Location location;
     private Chunk chunk;
     private BukkitTask collectTask;
+    private Hopper hopper;
+    private HopperMode mode = HopperMode.SUCK_ALL;
+
 
     public static ItemStack chunkyHopperItem(){
         ItemStack itemStack = new ItemStack(Material.HOPPER);
-        HashMap<String, String> nbt = new HashMap<>();
-        nbt.put("Type", "chunky");
-        itemStack = ItemUtils.itemSetNbtPath(itemStack, "AdvancedHoppers", nbt);
+        itemStack = ItemUtils.setHopperType(itemStack, "chunky");
         ItemMeta itemMeta = itemStack.getItemMeta();
         itemMeta.setDisplayName(AdvancedHoppers.getInstance().languageMapping.get("chunkyHopper"));
         itemStack.setItemMeta(itemMeta);
         return itemStack;
     }
-    public ChunkyHopper(Location location) {
+
+    public ChunkyHopper(Location location, HopperMode mode) throws BlockNotMatchException {
         this.location = location;
         chunk = location.getChunk();
         hopperChunkMap.put(chunk, this);
         hoppers.put(new LocationKey(location.getBlockX(), location.getBlockY(), location.getBlockZ()), this);
+
+        if (mode == null) mode = HopperMode.SUCK_ALL;
+        else this.mode = mode;
+
+        BlockState blockState = location.getBlock().getState();
+        if (!(blockState instanceof Hopper hopper)) {
+            this.removeHopper();
+            throw new BlockNotMatchException(
+                    "Block is not a hopper",
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ(),
+                    location.getBlock().getType()
+            );
+        }
+        this.hopper = hopper;
+
+        AtomicInteger count = new AtomicInteger(0);
+
         collectTask = Bukkit.getScheduler().runTaskTimer(AdvancedHoppers.getInstance(), () -> {
-            if (!location.getBlock().getType().equals(Material.HOPPER)){
+            if (!location.isChunkLoaded()) {
+                saveHopper();
                 collectTask.cancel();
                 return;
             }
 
-            if (location.getBlock().isBlockPowered()){
-                return;
-            }
-
-            boolean itemInChunk = false;
-
-            for (Entity entity : location.getChunk().getEntities()) {
-                if (!(entity instanceof Item)) {
-                    continue;
+            double tps = Bukkit.getTPS()[0];
+            count.getAndIncrement();
+            if (15 < tps && tps <= 18) {
+                if (count.get() % 2 != 1) {
+                    return;
                 }
-                Item item = (Item) entity;
-                itemInChunk = true;
-                if (!item.getLocation().getChunk().equals(location.getChunk())) {
-                    continue;
+            }
+            if (12 < tps && tps <= 15) {
+                if (count.get() % 4 != 1) {
+                    return;
                 }
-                ItemStack leftItems = (((Hopper)(location.getBlock().getState())).getInventory().addItem(item.getItemStack())).get(0);
-                item.setItemStack(leftItems);
+            }
+            if (10 < tps && tps <= 12) {
+                if (count.get() % 8 != 1) {
+                    return;
+                }
+            }
+            if (tps <= 10) {
+                if (count.get() % 10 != 1) {
+                    return;
+                }
             }
 
-            if (itemInChunk){
-                location.getBlock().getState().update();
+            if (count.get() >= 20) {
+                count.set(0);
             }
 
+            hopperCollect();
         }, 0, 1);
     }
 
-    public void collectItems(Item item) {
-        Location above = location.clone().add(0.5, 1, 0.5);
-        item.teleport(above);
+    public void hopperCollect() {
+        if (!location.getBlock().getType().equals(Material.HOPPER)){
+            collectTask.cancel();
+            return;
+        }
+
+        if (location.getBlock().isBlockPowered()) return;
+        boolean changed = false;
+
+        for (Entity entity : location.getChunk().getEntities()) {
+            if (mode == HopperMode.SUCK_UP) {
+                if (entity.getLocation().getBlockY() < location.getBlockY()) continue;
+            }
+            if (mode == HopperMode.SUCK_DOWN) {
+                if (entity.getLocation().getBlockY() > location.getBlockY()) continue;
+            }
+
+
+            if (!(entity instanceof Item item)) continue;
+            if (!item.getLocation().getChunk().equals(location.getChunk())) continue;
+
+            ItemStack itemStack = item.getItemStack();
+            int amount = itemStack.getAmount();
+
+            ItemStack leftItems = hopper.getInventory().addItem(itemStack).get(0);
+            if (leftItems == null) leftItems = new ItemStack(Material.AIR);
+            if (itemStack.isSimilar(leftItems) && leftItems.getAmount() == amount) continue;
+
+            item.setItemStack(leftItems);
+            changed = true;
+        }
+
+        if (!changed) return;
+        location.getBlock().getState().update();
     }
 
     public void unload(){
-        collectTask.cancel();
+        if (collectTask != null) collectTask.cancel();
         hoppers.remove(new LocationKey(this.location.getBlockX(), this.location.getBlockY(), this.location.getBlockZ()));
         hopperChunkMap.remove(this.chunk);
     }
@@ -110,6 +188,7 @@ public class ChunkyHopper{
         jsonObject.addProperty("x", this.location.getBlockX());
         jsonObject.addProperty("y", this.location.getBlockY());
         jsonObject.addProperty("z", this.location.getBlockZ());
+        jsonObject.addProperty("mode", this.mode.name());
         String json = jsonObject.toString();
         try {
             File file = chunkyHoppersDir.toPath().resolve(filename).toFile();
@@ -127,9 +206,7 @@ public class ChunkyHopper{
         String worldName = chunk.getWorld().getName();
         String filename = x + "_" + z + "_" + worldName + ".json";
         File file = new File(chunkyHoppersDir, filename);
-        if (!file.exists()){
-            return;
-        }
+        if (!file.exists()) return;
         try {
             FileReader fileReader = new FileReader(file);
             Gson gson = new GsonBuilder().create();
@@ -137,11 +214,26 @@ public class ChunkyHopper{
             int x1 = jsonObject.get("x").getAsInt();
             int y1 = jsonObject.get("y").getAsInt();
             int z1 = jsonObject.get("z").getAsInt();
+            String mode;
+            if (!jsonObject.has("mode")) mode = null;
+            else mode = jsonObject.get("mode").getAsString();
             Location location = new Location(Bukkit.getWorld(worldName), x1, y1, z1);
-            new ChunkyHopper(location);
-        } catch (IOException e) {
+            new ChunkyHopper(location, mode == null ? null : HopperMode.valueOf(mode));
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
+        catch (BlockNotMatchException exception) {
+            Bukkit.getLogger().warning(
+                    "Expect a hopper block but got " +
+                            exception.block + " at"+
+                            " " + exception.x +
+                            " " + exception.y +
+                            " " + exception.z + "."
+            );
+            Bukkit.getLogger().warning("Deleting the wrong hopper file.");
+        }
+
     }
 
     public void removeHopper(){
@@ -151,9 +243,7 @@ public class ChunkyHopper{
         String worldName = this.chunk.getWorld().getName();
         String filename = x + "_" + z + "_" + worldName + ".json";
         File file = new File(chunkyHoppersDir, filename);
-        if (!file.exists()){
-            return;
-        }
+        if (!file.exists()) return;
         file.delete();
     }
 
@@ -161,16 +251,10 @@ public class ChunkyHopper{
     public static void BlockPlaceEvent(BlockPlaceEvent event) {
         ItemStack currentItem = event.getItemInHand();
         Chunk chunk = event.getBlock().getChunk();
-        String hopperType = (String)(ItemUtils.itemGetNbtPath(currentItem, "AdvancedHoppers.Type"));
-
-        if (hopperType == null) {
-            return;
-        }
-
-        if (!hopperType.equals("chunky")) {
-            return;
-        }
-
+        if (!ItemUtils.isAdvancedHopper(currentItem)) return;
+        String hopperType = ItemUtils.getHopperType(currentItem);
+        if (hopperType == null) return;
+        if (!hopperType.equals("chunky")) return;
         if (hopperChunkMap.containsKey(chunk)){
             event.setCancelled(true);
             event.setBuild(false);
@@ -184,20 +268,86 @@ public class ChunkyHopper{
 
         Block block = event.getBlockPlaced();
         Location location = block.getLocation();
-        new ChunkyHopper(location);
+        Hopper hopper = (Hopper) block.getState();
+        hopper.setCustomName(AdvancedHoppers.getInstance().languageMapping.get("chunkyHopper").replaceAll("§6", ""));
+        hopper.update();
+        try{
+            new ChunkyHopper(location, null);
+        }
+        catch (BlockNotMatchException exception) {
+            Bukkit.getLogger().warning(
+                    "Expect a hopper block but got " +
+                            exception.block + " at"+
+                            " " + exception.x +
+                            " " + exception.y +
+                            " " + exception.z + "."
+            );
+        }
+    }
+
+    public static void ItemSpawnEvent(ItemSpawnEvent event){
+        Chunk chunk = event.getLocation().getChunk();
+        if (hopperChunkMap.get(chunk) == null) return;
+        hopperChunkMap.get(chunk).hopperCollect();
+    }
+
+    public static void EntitySpawnEvent(EntitySpawnEvent event) {
+        if (!event.getEntityType().equals(EntityType.WANDERING_TRADER)){
+            return;
+        }
+
+        WanderingTrader wanderingLeash = ((WanderingTrader)(event.getEntity()));
+
+        MerchantRecipe merchant = new MerchantRecipe(chunkyHopperItem(), Integer.MAX_VALUE);
+        merchant.addIngredient(new ItemStack(Material.HOPPER, (int) (3 + Math.round(4*Math.random()))));
+        merchant.addIngredient(new ItemStack(Material.DIAMOND,(int) (8 + Math.round(4*Math.random()))));
+
+        List<MerchantRecipe> tradeList = new ArrayList<>(wanderingLeash.getRecipes());
+        tradeList.add(0, merchant);
+        wanderingLeash.setRecipes(tradeList);
     }
 
     public static void ChunkLoadEvent(ChunkLoadEvent event) {
-        Chunk chunk = event.getChunk();
-        ChunkyHopper.loadHopper(chunk);
+        try{
+            Chunk chunk = event.getChunk();
+            ChunkyHopper.loadHopper(chunk);
+        }
+        catch (Exception e){
+            Bukkit.getLogger().warning("Error while passing ChunkLoadEvent");
+            e.printStackTrace();
+        }
     }
 
     public static void ChunkUnloadEvent(ChunkUnloadEvent event) {
-        Chunk chunk = event.getChunk();
-        if (hopperChunkMap.get(chunk) == null){
-            return;
+        try{
+            Chunk chunk = event.getChunk();
+            if (hopperChunkMap.get(chunk) == null) return;
+            hopperChunkMap.get(chunk).saveHopper();
         }
-        hopperChunkMap.get(chunk).saveHopper();
+        catch (Exception e){
+            Bukkit.getLogger().warning("Error while passing ChunkUnloadEvent");
+            e.printStackTrace();
+        }
+    }
+
+    public static void PlayerInteractEvent(PlayerInteractEvent event) {
+        if (!event.getPlayer().isSneaking()) return;
+        if (!event.hasBlock()) return;
+        if (!event.getClickedBlock().getType().equals(Material.HOPPER)) return;
+        if (!event.getAction().isRightClick()) return;
+        if (!event.getPlayer().getEquipment().getItemInMainHand().isEmpty()) return;
+        Location location = event.getClickedBlock().getLocation();
+        LocationKey locationKey = new LocationKey(
+                location.getBlockX(), location.getBlockY(), location.getBlockZ()
+        );
+        if (hoppers.get(locationKey) == null) return;
+        hoppers.get(locationKey).mode = HopperMode.values()[(hoppers.get(locationKey).mode.ordinal() + 1) % 3];
+        event.getPlayer().sendMessage(
+                AdvancedHoppers.getInstance().languageMapping.get("chunkyHopperMode")
+                        .replaceAll("§6", "")
+                        .replaceAll("%mode%", AdvancedHoppers.getInstance().languageMapping.get(hoppers.get(locationKey).mode.name()))
+        );
+        event.setCancelled(true);
     }
 
     public static void BlockBreakEvent(BlockBreakEvent event) {
@@ -206,14 +356,10 @@ public class ChunkyHopper{
                 location.getBlockX(), location.getBlockY(), location.getBlockZ()
         );
 
-        if (hoppers.get(locationKey) == null){
-            return;
-        }
+        if (hoppers.get(locationKey) == null) return;
 
         hoppers.get(locationKey).removeHopper();
-        if (!event.isDropItems()){
-            return;
-        }
+        if (!event.isDropItems()) return;
         Inventory hopperInventory = ((Hopper)(event.getBlock().getState())).getInventory();
         ItemStack[] hopperItem = hopperInventory.getContents();
         hopperInventory.clear();
@@ -222,16 +368,13 @@ public class ChunkyHopper{
         location.getWorld().dropItem(location, chunkyHopperItem());
 
         for (ItemStack i : hopperItem){
-            if (InventoryUtil.isEmpty(i)){
-                continue;
-            }
+            if (InventoryUtil.isEmpty(i)) continue;
             location.getWorld().dropItem(location, i);
         }
     }
 
     public static boolean recipeMatch(ItemStack craftingRecipe[]){
-        boolean canCraft = true;
-        canCraft = canCraft && InventoryUtil.isType(craftingRecipe[0], Material.IRON_BLOCK);
+        boolean canCraft = InventoryUtil.isType(craftingRecipe[0], Material.IRON_BLOCK);
         canCraft = canCraft && InventoryUtil.isEmpty(craftingRecipe[1]);
         canCraft = canCraft && InventoryUtil.isType(craftingRecipe[2], Material.IRON_BLOCK);
         canCraft = canCraft && InventoryUtil.isType(craftingRecipe[3], Material.IRON_BLOCK);
@@ -263,35 +406,23 @@ public class ChunkyHopper{
 
     public static void PrepareItemCraftEvent(PrepareItemCraftEvent event){
         CraftingInventory inventory = event.getInventory();
-        if (!recipeMatch(inventory.getMatrix())){
-            return;
-        }
-
+        if (!recipeMatch(inventory.getMatrix())) return;
         event.getInventory().setResult(chunkyHopperItem());
     }
 
     public static void InventoryClickEvent(InventoryClickEvent event){
-        if (!event.getInventory().getType().equals(InventoryType.WORKBENCH)){
-            return;
-        }
-
-        if (!event.getSlotType().equals(InventoryType.SlotType.RESULT)){
-            return;
-        }
+        if (!event.getInventory().getType().equals(InventoryType.WORKBENCH)) return;
+        if (!event.getSlotType().equals(InventoryType.SlotType.RESULT)) return;
 
         CraftingInventory inventory = (CraftingInventory) event.getInventory();
         ItemStack[] craftingMatrix = inventory.getMatrix();
 
-        if (!recipeMatch(inventory.getMatrix())){
-            return;
-        }
+        if (!recipeMatch(inventory.getMatrix())) return;
 
         event.setCancelled(true);
         event.setResult(Event.Result.DENY);
 
-        if (event.getClick().isRightClick()){
-            return;
-        }
+        if (event.getClick().isRightClick()) return;
 
         if (event.getClick().isShiftClick()){
             while (recipeMatch(craftingMatrix)){
@@ -317,20 +448,13 @@ public class ChunkyHopper{
             inventory.setMatrix(afterCraft);
             return;
         }
+        if (!cursor.isSimilar(chunkyHopperItem())) return;
+        if (cursor.getAmount() == 64) return;
+        if (!ItemUtils.isAdvancedHopper(cursor)) return;
 
-        if (!cursor.isSimilar(chunkyHopperItem())){
-            return;
-        }
+        String hopperType = ItemUtils.getHopperType(cursor);
 
-        if (cursor.getAmount() == 64){
-            return;
-        }
-
-        String hopperType = (String)(ItemUtils.itemGetNbtPath(cursor, "AdvancedHoppers.Type"));
-
-        if (!hopperType.equals("chunky")){
-            return;
-        }
+        if (!hopperType.equals("chunky")) return;
 
         inventory.setMatrix(afterCraft);
         cursor.setAmount(cursor.getAmount() + 1);
